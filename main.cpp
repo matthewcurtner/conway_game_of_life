@@ -1,37 +1,53 @@
-#include "functions.hpp"
+#include "board_functions.hpp"
+#include "at_position.hpp"
 #include <SFML/Graphics.hpp>
 #include <iostream>
-#include <random>
-#include <time.h>
 #include <vector>
-//would recommend testing this on openbox, or a wm that floats by default :P
+//#include "palette.hpp"
+
 int main()
 {
     bool start = 0;
     int scale = 10;
     int rate = scale * scale;
     int window_scale = scale * rate;
-    bool board[rate * rate] = {0}; 
+    
+    std::vector<bool> board(rate * rate);
+    std::vector<sf::RectangleShape> cell(rate * rate);
 
     std::cout << board[5] << "\n";
     sf::RenderWindow window(sf::VideoMode(window_scale, window_scale), "CONWAY", sf::Style::Close);
     sf::RectangleShape selector;
     selector.setSize(sf::Vector2f(scale, scale));
-    std::vector<sf::RectangleShape> cell(rate * rate);
+    
+    //colors
+
+    sf::Color foreground = sf::Color::White;
+    sf::Color background = sf::Color::Black;
+    sf::Color outline = sf::Color::Black;
+    sf::Color selector_color = sf::Color::Yellow;
+
+
+    palette colors;
+
+    colors.set_colors(foreground, background, outline, selector_color);
+    //colors.set_defaults();
+
+    
 
     //framerate limit@
     window.setFramerateLimit(60);
 
-    selector.setFillColor(sf::Color::Yellow);
+    selector.setFillColor(colors.selector);
 
-    cell = initialize_board(cell, scale);
+    cell = initialize_board(cell, scale, colors);
     while(window.isOpen())
     {
         window.clear();
         sf::Event keyboard;
         while(window.pollEvent(keyboard))
         {
-            
+            //give these keys some names that can be changed in config.
             if(keyboard.type == sf::Event::KeyPressed)
             {
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
@@ -52,13 +68,13 @@ int main()
                 }
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space))
                 {
-                    if(cell[at_position(cell, scale, selector.getPosition())].getFillColor() == sf::Color::Black)
+                    if(cell[at_position(cell, scale, selector.getPosition())].getFillColor() == colors.background)
                     {
-                        cell[at_position(cell, scale, selector.getPosition())].setFillColor(sf::Color::White);
+                        cell[at_position(cell, scale, selector.getPosition())].setFillColor(colors.foreground);
                     }
                     else
                     {
-                        cell[at_position(cell, scale, selector.getPosition())].setFillColor(sf::Color::Black);
+                        cell[at_position(cell, scale, selector.getPosition())].setFillColor(colors.background);
                     }
                 }
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))
@@ -67,7 +83,7 @@ int main()
                 }
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::C))
                 {
-                    cell = initialize_board(cell, scale);
+                    cell = initialize_board(cell, scale, colors);
                 }
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
                 {
@@ -77,12 +93,13 @@ int main()
             break;
         }
 
+        //turn into a function called sync_board or something...
         for(int i = 0; i < rate; i++)
         {
             for(int b = 0; b < rate; b++)
             {
                 int cell_number = (i * rate) + b;
-                if(cell[cell_number].getFillColor() == sf::Color::White)
+                if(cell[cell_number].getFillColor() == colors.foreground)
                 {
                     board[cell_number] = 1;
                 }
@@ -93,78 +110,11 @@ int main()
             }
         }
 
-        //updating board
-
+        
+        //Updates the board when the start button is toggled
         if(start)
         {
-            bool new_board[rate * rate] = {0};
-            int amount = 0;
-    
-            for(int i = 0; i < rate; i++)
-            {
-                amount = 0;
-                for(int b = 0; b < rate; b++)
-                {
-                    amount = 0;
-                 int cell_number = (i * rate) + b;
-
-
-                    if(i != 0)
-                    {
-                        amount += (int) board[ ( (i - 1) * rate ) + b];
-                    }
-                    if(b != 0)
-                    {
-                        amount += (int) board[ ( i * rate ) + (b - 1)];
-                    }
-                    if(i != rate - 1)
-                    {
-                        amount += (int) board[ ( (i + 1) * rate ) + b];
-                    }
-                    if(b != rate - 1)
-                    {
-                        amount += (int) board[ ( i * rate ) + (b + 1)];
-                    }
-                    if(i != 0 && b != 0)
-                    {
-                        amount += (int) board[ ( (i - 1) * rate ) + (b - 1)];
-                    }
-                    if(i != rate - 1 && b != 0)
-                    {
-                        amount += (int) board[ ( (i + 1) * rate ) + (b - 1)];
-                    }
-                    if(i != rate - 1 && b != rate - 1)
-                    {
-                        amount += (int) board[ ( (i + 1) * rate ) + (b + 1)];
-                    }
-                    if(i != 0 && b != rate - 1)
-                    {
-                        amount += (int) board[ ( (i - 1) * rate ) + (b + 1)];
-                    }
-
-                    
-                    if(amount == 3) //value should be 3
-                    {
-                    new_board[cell_number] = 1;
-                    }
-                    else if(amount > 3)
-                    {
-                    new_board[cell_number] = 0;
-                    }
-                    else if(amount == 2)
-                    {
-                        new_board[cell_number] = board[cell_number];
-                    }
-                    else
-                    {
-                        new_board[cell_number] = 0;
-                    }
-                }
-            }
-            for(int i = 0; i < rate * rate; i++)
-            {
-                board[i] = new_board[i];
-            }
+            board = update_board(board, scale);
         }
 
         //array to vector...
@@ -173,13 +123,15 @@ int main()
             for(int b = 0; b < rate; b++)
             {
                 int cell_number = (i * rate) + b;
+
+
                 if(board[cell_number] == 1)
                 {
-                    cell[cell_number].setFillColor(sf::Color::White);
+                    cell[cell_number].setFillColor(colors.foreground);
                 }
                 else
                 {
-                    cell[cell_number].setFillColor(sf::Color::Black);
+                    cell[cell_number].setFillColor(colors.background);
                 }
             }
         }
@@ -198,13 +150,5 @@ int main()
         
     }
 
-    // this if for debugging the board array...
-    /*for(int i = 0; i < rate; i++)
-    {   
-        std::cout << '\n';
-        for(int b = 0; b < rate; b++)
-        {
-            std::cout << ' ' << board[(i * rate) + b ];
-        }        
-    }*/
 }
+//Matthew Curtner 11/28/2021
